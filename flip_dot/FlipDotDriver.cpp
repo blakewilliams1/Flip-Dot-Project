@@ -45,16 +45,22 @@ void FlipDotDriver::refreshEntireDisplay() {
 void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
   // For each character:
   for (unsigned int currCharIndex = 0; currCharIndex < text.length(); currCharIndex++) {
-    // Multiples of 6 because chars are 5 dots wide and 1 space for padding.
+    // Multiples of 4 because chars are 3 dots wide and 1 space for padding.
     unsigned int currentCharPosX = x + (currCharIndex * 4);
     byte* currentCharBitmap = getBitmapFromChar(text[currCharIndex]);
 
+    // Draw out each character.
     for (unsigned int charRowIndex = 0; charRowIndex < textHeight; charRowIndex++) {
-      byte currRowValue = currentCharBitmap[charRowIndex];
+      byte currCharRowValue = currentCharBitmap[charRowIndex];
       // For each row of the current character:
       for (unsigned int charRowPixel = 0; charRowPixel < 3; charRowPixel++) {
-        bool isPixelOn = currRowValue & (1 << charRowPixel);
+        bool isPixelOn = currCharRowValue & (1 << charRowPixel);
         drawPixel(isPixelOn, currentCharPosX + charRowPixel, y + charRowIndex, false);
+      }
+
+      // Draw the spacer between each character.
+      if (text.length() > 1) {
+        drawPixel(false, currentCharPosX + 3, y + charRowIndex, false);
       }
     }
   }
@@ -68,6 +74,11 @@ void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y) {
 }
 
 void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bool refreshPanel) {
+  // Don't draw pixels that would be off the screen. It will wrap on display.
+  if (x >= displayWidth || x < 0 || y >= displayHeight || y < 0) {
+    return;
+  }
+
   // Seven pixels per panel, panel addresses are sequential from left to right.
   unsigned int panelAddress = x / 7;
   unsigned int rowIndex = (y * numPanels) + panelAddress;
