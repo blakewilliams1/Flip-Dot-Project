@@ -10,9 +10,7 @@ FlipDotDriver::FlipDotDriver(unsigned int width, unsigned int height) {
 void FlipDotDriver::refreshSinglePanel(unsigned int panelAddress) {
   byte currentPanelPayload[28] = {};
     for (int columnIndex = 0; columnIndex < 28; columnIndex++) {
-      // TODO: This needs to be revised. If the frame does not contain spacing then we need to account for that
       currentPanelPayload[columnIndex] = currentDisplayFrame[(columnIndex * numPanels) + panelAddress];
-//      }
     }
 
     // Push the panel's frame to the data bus.
@@ -28,6 +26,8 @@ void FlipDotDriver::clearDisplay() {
   for (unsigned int i = 0; i < displayHeight * numPanels; i++) {
     currentDisplayFrame[i] = 0;
   }
+
+  refreshEntireDisplay();
 }
 
 void FlipDotDriver::refreshEntireDisplay() {
@@ -39,26 +39,98 @@ void FlipDotDriver::refreshEntireDisplay() {
   for (unsigned int pannelOffset = 0; pannelOffset < numPanels; pannelOffset++) {
     refreshSinglePanel(pannelOffset);
   }
+}
 
-  // Update the content of class member 'currentDisplayFrame'.
-  //memcpy(currentDisplayFrame, frame, displayHeight * numPanels);
+// Origin coordinate is anchored in upper left of screen and in pixel units.
+void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
+  // For each character:
+  for (unsigned int currCharIndex = 0; currCharIndex < text.length(); currCharIndex++) {
+    // Multiples of 6 because chars are 5 dots wide and 1 space for padding.
+    unsigned int currentCharPosX = x + (currCharIndex * 4);
+    byte* currentCharBitmap = getBitmapFromChar(text[currCharIndex]);
+
+    for (unsigned int charRowIndex = 0; charRowIndex < textHeight; charRowIndex++) {
+      byte currRowValue = currentCharBitmap[charRowIndex];
+      // For each row of the current character:
+      for (unsigned int charRowPixel = 0; charRowPixel < 3; charRowPixel++) {
+        bool isPixelOn = currRowValue & (1 << charRowPixel);
+        drawPixel(isPixelOn, currentCharPosX + charRowPixel, y + charRowIndex, false);
+      }
+    }
+  }
+
+  // TODO: This can probably by simplified to only refresh changed panels.
+  refreshEntireDisplay();
 }
 
 void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y) {
+  drawPixel(isPixelOn, x, y, true);
+}
+
+void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bool refreshPanel) {
   // Seven pixels per panel, panel addresses are sequential from left to right.
   unsigned int panelAddress = x / 7;
-  unsigned int xCoordWithinPanel = x % 7;
-  unsigned int frameIndex = (numPanels - 1) + y;
-  byte relevantRow = currentDisplayFrame[frameIndex];
+  unsigned int rowIndex = (y * numPanels) + panelAddress;
+  byte relevantRow = currentDisplayFrame[rowIndex];
 
   // Set the relevant bit to 0 or 1 depending on isPixelOn.
+  unsigned int xCoordWithinPanel = x % 7;
   if (isPixelOn) {
     relevantRow = relevantRow | (1 << xCoordWithinPanel);
   } else {
     relevantRow = relevantRow & ~(1 << xCoordWithinPanel);
   }
-  currentDisplayFrame[frameIndex] = relevantRow;
+  currentDisplayFrame[rowIndex] = relevantRow;
 
-  refreshSinglePanel(panelAddress);
+  if (refreshPanel) {
+    refreshSinglePanel(panelAddress);
+  }
 }
 
+byte* FlipDotDriver::getBitmapFromChar(char c) {
+    switch(c) {
+      case '0': return zeroChar;
+      case '1': return oneChar;
+      case '2': return twoChar;
+      case '3': return threeChar;
+      case '4': return fourChar;
+      case '5': return fiveChar;
+      case '6': return sixChar;
+      case '7': return sevenChar;
+      case '8': return eightChar;
+      case '9': return nineChar;
+      case 'a': return aChar;
+      case 'b': return bChar;
+      case 'c': return cChar;
+      case 'd': return dChar;
+      case 'e': return eChar;
+      case 'f': return fChar;
+      case 'g': return gChar;
+      case 'h': return hChar;
+      case 'i': return iChar;
+      case 'j': return jChar;
+      case 'k': return kChar;
+      case 'l': return lChar;
+      case 'm': return mChar;
+      case 'n': return nChar;
+      case 'o': return oChar;
+      case 'p': return pChar;
+      case 'q': return qChar;
+      case 'r': return rChar;
+      case 's': return sChar;
+      case 't': return tChar;
+      case 'u': return uChar;
+      case 'v': return vChar;
+      case 'w': return wChar;
+      case 'x': return xChar;
+      case 'y': return yChar;
+      case 'z': return zChar;
+      case ':': return colonChar;
+      case ' ': return spaceChar;
+      case '.': return periodChar;
+      case '-': return dashChar;
+      // Return char is explict/intentional end of string.
+      case '\n': return 0;
+      default: return 0;
+    }
+}
