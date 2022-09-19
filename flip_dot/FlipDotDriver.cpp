@@ -43,10 +43,11 @@ void FlipDotDriver::refreshEntireDisplay() {
 
 // Origin coordinate is anchored in upper left of screen and in pixel units.
 void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
+  unsigned int backtrackOffsetX = 0;
   // For each character:
   for (unsigned int currCharIndex = 0; currCharIndex < text.length(); currCharIndex++) {
     // Multiples of 4 because chars are 3 dots wide and 1 space for padding.
-    unsigned int currentCharPosX = x + (currCharIndex * 4);
+    unsigned int currentCharPosX = x + (currCharIndex * 4) - backtrackOffsetX;
     byte* currentCharBitmap = getBitmapFromChar(text[currCharIndex]);
 
     // Draw out each character.
@@ -63,6 +64,11 @@ void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
         drawPixel(false, currentCharPosX + 3, y + charRowIndex, false);
       }
     }
+
+    // Pull the text string back on spaces and exclamations to cutt down excess padding.
+    if (currentCharBitmap == spaceChar || currentCharBitmap == exclamationChar) {
+      backtrackOffsetX+=2;
+    }
   }
 
   // TODO: This can probably by simplified to only refresh changed panels.
@@ -75,7 +81,7 @@ void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y) {
 
 void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bool refreshPanel) {
   // Don't draw pixels that would be off the screen. It will wrap on display.
-  if (x >= displayWidth || x < 0 || y >= displayHeight || y < 0) {
+  if (x >= displayWidth || y >= displayHeight) {
     return;
   }
 
@@ -140,6 +146,7 @@ byte* FlipDotDriver::getBitmapFromChar(char c) {
       case ' ': return spaceChar;
       case '.': return periodChar;
       case '-': return dashChar;
+      case '!': return exclamationChar;
       // Return char is explict/intentional end of string.
       case '\n': return 0;
       default: return 0;

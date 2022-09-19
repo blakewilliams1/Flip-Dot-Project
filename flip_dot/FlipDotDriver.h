@@ -349,6 +349,14 @@ class FlipDotDriver {
       0b000,
     };
 
+    byte exclamationChar[5] = {
+      0b010,
+      0b000,
+      0b010,
+      0b010,
+      0b010,
+    };
+
     // Does not include special chars like / or :
     String allChars = "abcdefghijklmnopqrstuvwxyz";
 
