@@ -41,7 +41,40 @@ void FlipDotDriver::refreshEntireDisplay() {
   }
 }
 
-// Origin coordinate is anchored in upper left of screen and in pixel units.
+// Mimics split flap display.
+void FlipDotDriver::animateSplitFlapText(String text, unsigned int x, unsigned int y) {
+  // TODO: Reserve the intermediate char arrays here and pass address into recursive function to recycle it.
+  animateSplitFlapText(text, x, y, 0);
+}
+
+// Private recursive function to start split flap animation.
+void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, unsigned int y, unsigned int flipIteration) {
+  // Base case. TODO: check if full text is shown early.
+  if (flipIteration > 38) {
+    drawText(originalText, x, y);
+    delay(1000);
+    return;
+  }
+
+  // TODO: this still has errors
+  char intermediateText[originalText.length()] = {};
+  for (unsigned int i = 0; i < originalText.length(); i++) {
+    unsigned int realTextCharVal = getFlapIndex(originalText[i]);
+    char intermediateChar = getCharFromFlapIndex(flipIteration);
+
+    if (realTextCharVal <= flipIteration) {// || realTextCharVal == -1) {
+      intermediateText[i] = originalText[i];
+    } else {
+      intermediateText[i] = intermediateChar;
+    }
+  }
+  
+  drawText(intermediateText, x, y);
+  delay(25);
+  animateSplitFlapText(originalText, x, y, flipIteration + 1);
+}
+
+// Origin coordinate is anchored in lower left of screen and in pixel units.
 void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
   unsigned int backtrackOffsetX = 0;
   // For each character:
@@ -102,6 +135,39 @@ void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bo
   if (refreshPanel) {
     refreshSinglePanel(panelAddress);
   }
+}
+
+char FlipDotDriver::getCharFromFlapIndex(unsigned int charVal) {
+  // lowercase a through z.
+  if (charVal <= 25) {
+    return charVal + 97;
+  }
+
+  // 0-9 and semicolon
+  if (charVal > 25 && charVal <= 35) {
+    return charVal + 22;
+  } 
+
+  // This means to default to origin text's char.
+  return -1;
+}
+
+// A custom ordering is needed because the ascii values don't
+// directly align with the ordering of split flap displays.
+unsigned int FlipDotDriver::getFlapIndex(char c) {
+  int charVal = (int)c;
+  // lowercase a through z.
+  if (charVal >= 97 && charVal <= 122) {
+    return charVal - 97;
+  }
+
+  // 0-9 and semicolon
+  if (charVal >= 48 && charVal <= 58) {
+    return charVal - 22;
+  }
+
+  // fall through is no flap animation.
+  return -1;
 }
 
 byte* FlipDotDriver::getBitmapFromChar(char c) {

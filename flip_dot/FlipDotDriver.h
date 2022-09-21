@@ -17,13 +17,17 @@ class FlipDotDriver {
   public:
     FlipDotDriver(unsigned int width, unsigned int height);
     void drawText(String text, unsigned int x, unsigned int y);
+    void animateSplitFlapText(String text, unsigned int x, unsigned int y);
     void drawPixel(bool isPixelOn,  unsigned int x, unsigned int y);
+    void drawPixel(bool isPixelOn,  unsigned int x, unsigned int y, bool refreshPanel);
     void clearDisplay();
     void refreshSinglePanel(unsigned int panelAddress);
     void refreshEntireDisplay();
 
   private:
-    void drawPixel(bool isPixelOn,  unsigned int x, unsigned int y, bool refreshPanel);
+    char getCharFromFlapIndex(unsigned int val);
+    unsigned int getFlapIndex(char c);
+    void animateSplitFlapText(String text, unsigned int x, unsigned int y, unsigned int flipIteration);
     unsigned int displayWidth;
     unsigned int displayHeight;
     unsigned int numPanels;
