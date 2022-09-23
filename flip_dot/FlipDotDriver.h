@@ -26,7 +26,7 @@ class FlipDotDriver {
 
   private:
     char getCharFromFlapIndex(unsigned int val);
-    unsigned int getFlapIndex(char c);
+    int getFlapIndex(char c);
     unsigned int displayWidth;
     unsigned int displayHeight;
     unsigned int numPanels;
@@ -359,9 +359,6 @@ class FlipDotDriver {
       0b010,
       0b010,
     };
-
-    // Does not include special chars like / or :
-    String allChars = "abcdefghijklmnopqrstuvwxyz";
 
     byte* getBitmapFromChar(char c);
 };

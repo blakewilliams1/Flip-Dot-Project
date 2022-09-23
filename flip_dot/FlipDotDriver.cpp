@@ -44,11 +44,12 @@ void FlipDotDriver::refreshEntireDisplay() {
 // Mimics split flap display.
 void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, unsigned int y) {
   char intermediateText[originalText.length()] = {};
-  for (unsigned int flipIteration = 0; flipIteration < 38; flipIteration++) {
+  // There is a total of 38 chars (0-9, a-z) mapped to flap positions. 50 is arbitrary as we always break out early.
+  for (int flipIteration = 0; flipIteration < 50; flipIteration++) {
     bool stillIntermediate = false;
     // Generate the text to show based on the current flap iteration.
     for (unsigned int i = 0; i < originalText.length(); i++) {
-      unsigned int realTextCharVal = getFlapIndex(originalText[i]);
+      int realTextCharVal = getFlapIndex(originalText[i]);
       char intermediateChar = getCharFromFlapIndex(flipIteration);
       
       if (realTextCharVal <= flipIteration || realTextCharVal == -1) {
@@ -103,7 +104,7 @@ void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
   // Refresh only the panels the text is being rendered across.
   unsigned int startingPanelAddress = x / 7;
   unsigned int endingPanelAddress = (x + (text.length() * 4) - backtrackOffsetX) / 7;
-  for (int panelAddress = startingPanelAddress; panelAddress <= endingPanelAddress; panelAddress++) {
+  for (unsigned int panelAddress = startingPanelAddress; panelAddress <= endingPanelAddress; panelAddress++) {
     refreshSinglePanel(panelAddress);
   }
 }
@@ -154,7 +155,7 @@ char FlipDotDriver::getCharFromFlapIndex(unsigned int charVal) {
 
 // A custom ordering is needed because the ascii values don't
 // directly align with the ordering of split flap displays.
-unsigned int FlipDotDriver::getFlapIndex(char c) {
+int FlipDotDriver::getFlapIndex(char c) {
   int charVal = (int)c;
   // lowercase a through z.
   if (charVal >= 97 && charVal <= 122) {
@@ -170,6 +171,7 @@ unsigned int FlipDotDriver::getFlapIndex(char c) {
   return -1;
 }
 
+// Maps supported characters to their corresponding bitmaps.
 byte* FlipDotDriver::getBitmapFromChar(char c) {
     switch(c) {
       case '0': return zeroChar;
