@@ -27,7 +27,6 @@ class FlipDotDriver {
   private:
     char getCharFromFlapIndex(unsigned int val);
     unsigned int getFlapIndex(char c);
-    void animateSplitFlapText(String text, unsigned int x, unsigned int y, unsigned int flipIteration);
     unsigned int displayWidth;
     unsigned int displayHeight;
     unsigned int numPanels;

@@ -42,36 +42,32 @@ void FlipDotDriver::refreshEntireDisplay() {
 }
 
 // Mimics split flap display.
-void FlipDotDriver::animateSplitFlapText(String text, unsigned int x, unsigned int y) {
-  // TODO: Reserve the intermediate char arrays here and pass address into recursive function to recycle it.
-  animateSplitFlapText(text, x, y, 0);
-}
-
-// Private recursive function to start split flap animation.
-void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, unsigned int y, unsigned int flipIteration) {
-  // Base case. TODO: check if full text is shown early.
-  if (flipIteration > 38) {
-    drawText(originalText, x, y);
-    delay(1000);
-    return;
-  }
-
-  // TODO: this still has errors
+void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, unsigned int y) {
   char intermediateText[originalText.length()] = {};
-  for (unsigned int i = 0; i < originalText.length(); i++) {
-    unsigned int realTextCharVal = getFlapIndex(originalText[i]);
-    char intermediateChar = getCharFromFlapIndex(flipIteration);
+  for (unsigned int flipIteration = 0; flipIteration < 38; flipIteration++) {
+    bool stillIntermediate = false;
+    // Generate the text to show based on the current flap iteration.
+    for (unsigned int i = 0; i < originalText.length(); i++) {
+      unsigned int realTextCharVal = getFlapIndex(originalText[i]);
+      char intermediateChar = getCharFromFlapIndex(flipIteration);
+      
+      if (realTextCharVal <= flipIteration || realTextCharVal == -1) {
+        intermediateText[i] = originalText[i];
+      } else {
+        stillIntermediate = true;
+        intermediateText[i] = intermediateChar;
+      }
+    }
 
-    if (realTextCharVal <= flipIteration) {// || realTextCharVal == -1) {
-      intermediateText[i] = originalText[i];
-    } else {
-      intermediateText[i] = intermediateChar;
+    // Draw the current intermediate flapped state.
+    drawText(intermediateText, x, y);
+    delay(25);
+
+    // Break out of flap animation if we just flapped to the desired state.
+    if (!stillIntermediate) {
+      break;
     }
   }
-  
-  drawText(intermediateText, x, y);
-  delay(25);
-  animateSplitFlapText(originalText, x, y, flipIteration + 1);
 }
 
 // Origin coordinate is anchored in lower left of screen and in pixel units.
