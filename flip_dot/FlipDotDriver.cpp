@@ -96,12 +96,16 @@ void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
 
     // Pull the text string back on spaces and exclamations to cutt down excess padding.
     if (currentCharBitmap == spaceChar || currentCharBitmap == exclamationChar) {
-      backtrackOffsetX+=2;
+      backtrackOffsetX += 2;
     }
   }
 
-  // TODO: This can probably by simplified to only refresh changed panels.
-  refreshEntireDisplay();
+  // Refresh only the panels the text is being rendered across.
+  unsigned int startingPanelAddress = x / 7;
+  unsigned int endingPanelAddress = (x + (text.length() * 4) - backtrackOffsetX) / 7;
+  for (int panelAddress = startingPanelAddress; panelAddress <= endingPanelAddress; panelAddress++) {
+    refreshSinglePanel(panelAddress);
+  }
 }
 
 void FlipDotDriver::drawPixel(bool isPixelOn, unsigned int x, unsigned int y) {
