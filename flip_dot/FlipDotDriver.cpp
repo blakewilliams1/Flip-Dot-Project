@@ -9,17 +9,17 @@ FlipDotDriver::FlipDotDriver(unsigned int width, unsigned int height) {
 
 void FlipDotDriver::refreshSinglePanel(unsigned int panelAddress) {
   byte currentPanelPayload[28] = {};
-    for (int columnIndex = 0; columnIndex < 28; columnIndex++) {
-      currentPanelPayload[columnIndex] = currentDisplayFrame[(columnIndex * numPanels) + panelAddress];
-    }
+  for (int columnIndex = 0; columnIndex < 28; columnIndex++) {
+    currentPanelPayload[columnIndex] = currentDisplayFrame[(columnIndex * numPanels) + panelAddress];
+  }
 
-    // Push the panel's frame to the data bus.
-    Serial.write(headerSignature);
-    Serial.write(instantDisplayCommand);
-    // Pannel offset is also pannel address because addresses start at 0 and increase.
-    Serial.write(panelAddress);
-    Serial.write(currentPanelPayload, pixelsPerPanel);
-    Serial.write(payloadEndSignature);
+  // Push the panel's frame to the data bus.
+  Serial.write(headerSignature);
+  Serial.write(instantDisplayCommand);
+  // Pannel offset is also pannel address because addresses start at 0 and increase.
+  Serial.write(panelAddress);
+  Serial.write(currentPanelPayload, pixelsPerPanel);
+  Serial.write(payloadEndSignature);
 }
 
 void FlipDotDriver::clearDisplay() {
@@ -51,7 +51,7 @@ void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, un
     for (unsigned int i = 0; i < originalText.length(); i++) {
       int realTextCharVal = getFlapIndex(originalText[i]);
       char intermediateChar = getCharFromFlapIndex(flipIteration);
-      
+
       if (realTextCharVal <= flipIteration || realTextCharVal == -1) {
         intermediateText[i] = originalText[i];
       } else {
@@ -147,7 +147,7 @@ char FlipDotDriver::getCharFromFlapIndex(unsigned int charVal) {
   // 0-9 and semicolon
   if (charVal > 25 && charVal <= 35) {
     return charVal + 22;
-  } 
+  }
 
   // This means to default to origin text's char.
   return -1;
@@ -173,50 +173,50 @@ int FlipDotDriver::getFlapIndex(char c) {
 
 // Maps supported characters to their corresponding bitmaps.
 byte* FlipDotDriver::getBitmapFromChar(char c) {
-    switch(c) {
-      case '0': return zeroChar;
-      case '1': return oneChar;
-      case '2': return twoChar;
-      case '3': return threeChar;
-      case '4': return fourChar;
-      case '5': return fiveChar;
-      case '6': return sixChar;
-      case '7': return sevenChar;
-      case '8': return eightChar;
-      case '9': return nineChar;
-      case 'a': return aChar;
-      case 'b': return bChar;
-      case 'c': return cChar;
-      case 'd': return dChar;
-      case 'e': return eChar;
-      case 'f': return fChar;
-      case 'g': return gChar;
-      case 'h': return hChar;
-      case 'i': return iChar;
-      case 'j': return jChar;
-      case 'k': return kChar;
-      case 'l': return lChar;
-      case 'm': return mChar;
-      case 'n': return nChar;
-      case 'o': return oChar;
-      case 'p': return pChar;
-      case 'q': return qChar;
-      case 'r': return rChar;
-      case 's': return sChar;
-      case 't': return tChar;
-      case 'u': return uChar;
-      case 'v': return vChar;
-      case 'w': return wChar;
-      case 'x': return xChar;
-      case 'y': return yChar;
-      case 'z': return zChar;
-      case ':': return colonChar;
-      case ' ': return spaceChar;
-      case '.': return periodChar;
-      case '-': return dashChar;
-      case '!': return exclamationChar;
-      // Return char is explict/intentional end of string.
-      case '\n': return 0;
-      default: return 0;
-    }
+  switch (c) {
+    case '0': return zeroChar;
+    case '1': return oneChar;
+    case '2': return twoChar;
+    case '3': return threeChar;
+    case '4': return fourChar;
+    case '5': return fiveChar;
+    case '6': return sixChar;
+    case '7': return sevenChar;
+    case '8': return eightChar;
+    case '9': return nineChar;
+    case 'a': return aChar;
+    case 'b': return bChar;
+    case 'c': return cChar;
+    case 'd': return dChar;
+    case 'e': return eChar;
+    case 'f': return fChar;
+    case 'g': return gChar;
+    case 'h': return hChar;
+    case 'i': return iChar;
+    case 'j': return jChar;
+    case 'k': return kChar;
+    case 'l': return lChar;
+    case 'm': return mChar;
+    case 'n': return nChar;
+    case 'o': return oChar;
+    case 'p': return pChar;
+    case 'q': return qChar;
+    case 'r': return rChar;
+    case 's': return sChar;
+    case 't': return tChar;
+    case 'u': return uChar;
+    case 'v': return vChar;
+    case 'w': return wChar;
+    case 'x': return xChar;
+    case 'y': return yChar;
+    case 'z': return zChar;
+    case ':': return colonChar;
+    case ' ': return spaceChar;
+    case '.': return periodChar;
+    case '-': return dashChar;
+    case '!': return exclamationChar;
+    // Return char is explict/intentional end of string.
+    case '\n': return 0;
+    default: return 0;
+  }
 }
