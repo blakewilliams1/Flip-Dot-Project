@@ -7,6 +7,29 @@ FlipDotDriver::FlipDotDriver(unsigned int width, unsigned int height) {
   currentDisplayFrame = new byte[displayHeight * numPanels];
 }
 
+// Assumes the provided array is at least enough bits as the screen is pixels.
+void FlipDotDriver::setRawDisplayData(const byte* rawData) {
+  unsigned int rawDataBitIndex = 0;
+  for (unsigned int currRow = 0; currRow < displayHeight; currRow++) {
+    for (unsigned int j = 0; j < numPanels; j++) {
+      // Iterate rows from left to right, top to bottom.
+      byte rowValue = 0;
+      for (unsigned int currBitIndex = 0; currBitIndex < 7; currBitIndex++) {
+        byte currRawByte = rawData[rawDataBitIndex / 8];
+        // If the current bit is high, add it into the proper spot on the current panel's row.
+        if (currRawByte & (1 << (rawDataBitIndex % 8))) {
+          rowValue += 1 << currBitIndex;
+        }
+
+        rawDataBitIndex++;
+        if (rawDataBitIndex % 8 == 0) {
+        }
+      }
+      currentDisplayFrame[(numPanels * currRow) + j] = rowValue;
+    }
+  }
+}
+
 void FlipDotDriver::refreshSinglePanel(unsigned int panelAddress) {
   byte currentPanelPayload[28] = {};
   for (int columnIndex = 0; columnIndex < 28; columnIndex++) {
@@ -26,8 +49,6 @@ void FlipDotDriver::clearDisplay() {
   for (unsigned int i = 0; i < displayHeight * numPanels; i++) {
     currentDisplayFrame[i] = 0;
   }
-
-  refreshEntireDisplay();
 }
 
 void FlipDotDriver::refreshEntireDisplay() {
@@ -71,8 +92,12 @@ void FlipDotDriver::animateSplitFlapText(String originalText, unsigned int x, un
   }
 }
 
-// Origin coordinate is anchored in lower left of screen and in pixel units.
 void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
+  drawText(text, x, y, true);
+}
+
+// Origin coordinate is anchored in lower left of screen and in pixel units.
+void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y, bool refreshPanel) {
   unsigned int backtrackOffsetX = 0;
   // For each character:
   for (unsigned int currCharIndex = 0; currCharIndex < text.length(); currCharIndex++) {
@@ -101,6 +126,9 @@ void FlipDotDriver::drawText(String text, unsigned int x, unsigned int y) {
     }
   }
 
+  if (!refreshPanel) {
+    return;
+  }
   // Refresh only the panels the text is being rendered across.
   unsigned int startingPanelAddress = x / 7;
   unsigned int endingPanelAddress = (x + (text.length() * 4) - backtrackOffsetX) / 7;

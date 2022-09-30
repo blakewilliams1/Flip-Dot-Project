@@ -16,10 +16,12 @@ static const unsigned int textHeight = 5;
 class FlipDotDriver {
   public:
     FlipDotDriver(unsigned int width, unsigned int height);
+    void setRawDisplayData(const byte* data);
     void drawText(String text, unsigned int x, unsigned int y);
+    void drawText(String text, unsigned int x, unsigned int y, bool refreshPanel);
     void animateSplitFlapText(String text, unsigned int x, unsigned int y);
-    void drawPixel(bool isPixelOn,  unsigned int x, unsigned int y);
-    void drawPixel(bool isPixelOn,  unsigned int x, unsigned int y, bool refreshPanel);
+    void drawPixel(bool isPixelOn, unsigned int x, unsigned int y);
+    void drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bool refreshPanel);
     void clearDisplay();
     void refreshSinglePanel(unsigned int panelAddress);
     void refreshEntireDisplay();
