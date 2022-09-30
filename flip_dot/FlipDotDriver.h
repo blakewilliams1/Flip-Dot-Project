@@ -354,6 +354,14 @@ class FlipDotDriver {
       0b000,
     };
 
+    byte greaterThanChar[5] = {
+      0b001,
+      0b010,
+      0b100,
+      0b010,
+      0b001,
+    };
+
     byte exclamationChar[5] = {
       0b010,
       0b000,

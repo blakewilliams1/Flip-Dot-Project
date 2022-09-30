@@ -20,11 +20,10 @@ void FlipDotDriver::setRawDisplayData(const byte* rawData) {
         if (currRawByte & (1 << (rawDataBitIndex % 8))) {
           rowValue += 1 << currBitIndex;
         }
-
         rawDataBitIndex++;
-        if (rawDataBitIndex % 8 == 0) {
-        }
       }
+
+      // Commit the built 7-byte-format row value into the display data buffer.
       currentDisplayFrame[(numPanels * currRow) + j] = rowValue;
     }
   }
@@ -242,6 +241,7 @@ byte* FlipDotDriver::getBitmapFromChar(char c) {
     case ' ': return spaceChar;
     case '.': return periodChar;
     case '-': return dashChar;
+    case '>': return greaterThanChar;
     case '!': return exclamationChar;
     // Return char is explict/intentional end of string.
     case '\n': return 0;
