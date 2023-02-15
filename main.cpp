@@ -14,10 +14,10 @@ using namespace std;
 
 enum CONTROLLER_INPUT {
 	NONE = 0,
-	LEFT_D_PAD = 1,
-	UP_D_PAD = 2,
-	RIGHT_D_PAD = 3,
-	DOWN_D_PAD = 4,
+	RIGHT_D_PAD = 1,
+	DOWN_D_PAD = 2,
+	LEFT_D_PAD = 3,
+	UP_D_PAD = 4,
 	TRIANGLE = 5,
 	O = 6,
 	X = 7,
@@ -49,9 +49,9 @@ FlipDotDriver displayDriver(56, 28); // 4 panels.
 void refreshMenu() {
 	displayDriver.clearDisplay();
 	for (int i = 0; i < menuLabelsLength; i++) {
-		displayDriver.drawText(menuLabels[i], 4, 22 - (i * 6));
+		displayDriver.drawText(menuLabels[i], 5, 22 - (i * 6));
 	}
-	displayDriver.drawText(">", 0, 22 - (highlightedMenuItem * 4));
+	displayDriver.drawText(">", 1, 22 - (highlightedMenuItem * 6));
 
 	displayDriver.refreshEntireDisplay();
 }
@@ -77,7 +77,6 @@ int main(int argc, char *argv[]) {
 	while(1) {
 		// TODO: Figure out how to prevent a hang on camera locking up input handling.
 		// Try to read a frame off the camera's file descriptor.
-		if (currentSystemState == DEPTH_CAM) {
 
 		}
 
