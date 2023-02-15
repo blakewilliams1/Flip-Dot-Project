@@ -60,7 +60,6 @@ int main(int argc, char *argv[]) {
 	FILE* depthCamFile;
 	cout << "Starting controller listener" << endl;
 	displayDriver.clearDisplay();
-	displayDriver.drawText("loading", 1, 7, true);
 
 	// Local developement pulls relative to .cpp files finshed version pulls relative to the binaries.
 	FILE* controllerInput = popen("./ps1_driver", "r");
@@ -78,17 +77,15 @@ int main(int argc, char *argv[]) {
 		// TODO: Figure out how to prevent a hang on camera locking up input handling.
 		// Try to read a frame off the camera's file descriptor.
 
-		}
-
 		try {
 			size_t bytesread =
 			  fread(&inputBuffer, sizeof(char), sizeof(inputBuffer), controllerInput);
 			if (bytesread == 0) {
 				continue; // Maybe sleep a little to save power?
 			} else {
-				controllerValue =
-				  static_cast<CONTROLLER_INPUT>(((int)inputBuffer[0] - 48) * 10 + ((int)inputBuffer[1] - 48));
-				wasPressed = inputBuffer[2] == 1;
+			  controllerValue =
+			    static_cast<CONTROLLER_INPUT>((10 * (int)inputBuffer[0] + (int)inputBuffer[1]) - 528);
+		  	wasPressed = inputBuffer[2] == '0';
 				cout << "Heard input: " << controllerValue << " is pressed: " << inputBuffer[2] << endl;
 			}
 		} catch (...) {
