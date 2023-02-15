@@ -22,7 +22,7 @@
 #define HEIGHT          0                 // Defines the number of lines for each frame or zero for auto resolve  //
 #define FPS             30                // Defines the rate of frames per second                                //
 #define STREAM_INDEX    0                 // Defines the stream index, used for multiple streams of the same type //
-#define HEIGHT_RATIO    20                // Defines the height ratio between the original frame to the new frame //
+#define HEIGHT_RATIO    17                // Defines the height ratio between the original frame to the new frame //
 #define WIDTH_RATIO     10                // Defines the width ratio between the original frame to the new frame  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 	rs2_device* dev = rs2_create_device(device_list, 0, &e);
 	check_error(e);
 
-	print_device_info(dev);
+	//print_device_info(dev);
 
 	/* Determine depth value corresponding to one meter */
 	uint16_t one_meter = (uint16_t)(1.0f / get_depth_unit_value(dev));
@@ -188,6 +188,7 @@ int main(int argc, char *argv[]) {
 				rs2_release_frame(frame);
 				continue;
       }
+      lastSentFrameTimestampMs = currClock;
 
 			// Check if the given frame can be extended to depth frame interface
 			// Accept only depth frames and skip other frames
@@ -216,7 +217,7 @@ int main(int argc, char *argv[]) {
 
 				if ((y % HEIGHT_RATIO) == (HEIGHT_RATIO-1)) {
 					for (i = 0; i < (row_length); ++i) {
-						static const char* pixels = " .:;nhBXW";
+						static const char* pixels = "012345678";//" .:;nhBXW";
 						int pixel_index = (coverage[i] / (HEIGHT_RATIO * WIDTH_RATIO / sizeof(pixels)));
 						*out++ = pixels[pixel_index];
 						coverage[i] = 0;
@@ -225,8 +226,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			*out++ = 0;
-			//printf("\n%s", buffer);
-			printf("%lu\n", lastSentFrameTimestampMs);
+			printf("\n%s", buffer);
 
 			free(coverage);
 			rs2_release_frame(frame);
