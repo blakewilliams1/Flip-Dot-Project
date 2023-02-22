@@ -82,12 +82,12 @@ int main(int argc, char *argv[]) {
 			  fread(&inputBuffer, sizeof(char), sizeof(inputBuffer), controllerInput);
 			if (bytesread == 0) {
 				continue; // Maybe sleep a little to save power?
-			} else {
-			  controllerValue =
-			    static_cast<CONTROLLER_INPUT>((10 * (int)inputBuffer[0] + (int)inputBuffer[1]) - 528);
-		  	wasPressed = inputBuffer[2] == '0';
-				cout << "Heard input: " << controllerValue << " is pressed: " << inputBuffer[2] << endl;
 			}
+
+			controllerValue =
+			  static_cast<CONTROLLER_INPUT>((10 * (int)inputBuffer[0] + (int)inputBuffer[1]) - 528);
+			wasPressed = inputBuffer[2] == '0';
+			cout << "Heard input: " << controllerValue << " is pressed: " << inputBuffer[2] << endl;
 		} catch (...) {
 			cout << "Error was caught reading controller input!" << endl;
 			pclose(controllerInput);

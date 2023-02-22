@@ -2,7 +2,9 @@
 #define FLIP_DOT_DRIVER_H
 
 #include <stdint.h>
-#include "Arduino.h"
+#include <string>
+#include <termios.h> // Contains POSIX terminal control definitions
+//#include "Arduino.h"
 
 #define byte uint8_t
 
@@ -16,10 +18,11 @@ static const unsigned int textHeight = 5;
 class FlipDotDriver {
   public:
     FlipDotDriver(unsigned int width, unsigned int height);
+    ~FlipDotDriver();
     void setRawDisplayData(const byte* data);
-    void drawText(String text, unsigned int x, unsigned int y);
-    void drawText(String text, unsigned int x, unsigned int y, bool refreshPanel);
-    void animateSplitFlapText(String text, unsigned int x, unsigned int y);
+    void drawText(std::string text, unsigned int x, unsigned int y);
+    void drawText(std::string text, unsigned int x, unsigned int y, bool refreshPanel);
+    void animateSplitFlapText(std::string text, unsigned int x, unsigned int y);
     void drawPixel(bool isPixelOn, unsigned int x, unsigned int y);
     void drawPixel(bool isPixelOn, unsigned int x, unsigned int y, bool refreshPanel);
     void clearDisplay();
@@ -32,6 +35,9 @@ class FlipDotDriver {
     unsigned int displayWidth;
     unsigned int displayHeight;
     unsigned int numPanels;
+    // Location of the open FILE object to push data to display.
+    int uartPortAddress;
+    struct termios tty;
     byte* currentDisplayFrame;
 
 
