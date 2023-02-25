@@ -102,6 +102,8 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 0) {
 		// Enter the depth cam mode.
+		displayDriver.clearDisplay();
+		displayDriver.drawText("loading", 15, 12, true);
 		depthCamFile = popen("./rs-depth", "r");
 		if (!depthCamFile) {
 			cout << "Error starting depth camera!" << endl;
@@ -133,13 +135,11 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	//cout << "about to read cam data" << endl;
 	size_t cameraReadStatus =
 	  fread(&cameraInputBuffer, sizeof(char), sizeof(cameraInputBuffer), depthCamFile);
-	//read()
-	//setvbuf(depthCamFile, cameraInputBuffer, _IONBF, sizeof(cameraInputBuffer));
-	//cout << "cameraReadStatus:  " << cameraReadStatus << endl;
+
+	byte camDisplayBuffer[196] = {};
 	if (cameraReadStatus == 0) {
-		fflush(depthCamFile);
 		// Convert all values into a raw display buffer and send to display.
-		/*int cameraInputBufferIndex = 0;
+		int cameraInputBufferIndex = 0;
 		for (int i = 0; i < 196; i++) {
 			byte builtRow = 0;
 			for (int j = 0; j < 8; j++) {
@@ -150,8 +150,9 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 			}
 			camDisplayBuffer[i] = builtRow;
 		}
-		//displayDriver.setRawDisplayData(camDisplayBuffer);
-		//displayDriver.refreshEntireDisplay();*/
+		//printf(camDisplayBuffer);
+		displayDriver.setRawDisplayData(camDisplayBuffer);
+		displayDriver.refreshEntireDisplay();
 	}
 }
 
@@ -220,4 +221,3 @@ int main(int argc, char *argv[]) {
 
 	return 0;
 }
-
