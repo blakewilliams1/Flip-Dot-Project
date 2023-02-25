@@ -42,9 +42,13 @@ string menuLabels[3] = {
 };
 int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 
-FILE* depthCamFile;
-char cameraInputBuffer[1652]; // 59 * 28 pixels
+FILE* controllerInputFile = NULL;
+FILE* depthCamFile = NULL;
+char controllerInputBuffer[3] = {};
+char cameraInputBuffer[1652] = {}; // 59 * 28 pixels
 int highlightedMenuItem = 0;
+CONTROLLER_INPUT controllerValue = NONE;
+bool wasPressed = false;
 SYSTEM_STATE currentSystemState = MENU;
 FlipDotDriver displayDriver(56, 28); // 4 panels.
 
@@ -58,17 +62,31 @@ void refreshMenu() {
 }
 
 FILE* initControllerProcess() {
-	// Local developement pulls relative to .cpp files finshed version pulls relative to the binaries.
-	FILE* controllerInputFile = popen("./ps1_driver", "r");
-	if (!controllerInputFile) {
+	// Local development pulls relative to .cpp files, finshed version pulls relative to the binaries.
+	FILE* processFilePointer = popen("./ps1_driver", "r");
+	if (!processFilePointer) {
 		cout << "Error starting controller listener!" << endl;
-		return controllerInputFile;
+		return processFilePointer;
 	}
-	int controllerInputFd = fileno(controllerInputFile);
+	int controllerInputFd = fileno(processFilePointer);
 	int controllerInputFdFlags = fcntl(controllerInputFd, F_GETFL, 0);
 	fcntl(controllerInputFd, F_SETFL, controllerInputFdFlags | O_NONBLOCK);
 
-	return controllerInputFile;
+	return processFilePointer;
+}
+
+FILE* initDepthCamProcess() {
+	// Local developement pulls relative to .cpp files, finshed version pulls relative to the binaries.
+	FILE* processFilePointer = popen("./rs-depth", "r");
+	if (!processFilePointer) {
+		cout << "Error starting depth cam process!" << endl;
+		return processFilePointer;
+	}
+	int controllerInputFd = fileno(processFilePointer);
+	int controllerInputFdFlags = fcntl(controllerInputFd, F_GETFL, 0);
+	fcntl(controllerInputFd, F_SETFL, controllerInputFdFlags | O_NONBLOCK);
+
+	return processFilePointer;
 }
 
 void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
@@ -105,9 +123,10 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		// Return to menus from the depth cam view.
 		currentSystemState = MENU;
 		refreshMenu();
-		//if (depthCamFile) {
-		//	pclose(depthCamFile);
-		//}
+		if (depthCamFile) {
+			pclose(depthCamFile);
+		}
+		return;
 	}
 
 	// Read depth camera data. All values > 2 are on pixels. Incoming buffer will be 59 x 28 pixels
@@ -136,56 +155,67 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 }
 
-int main(int argc, char *argv[]) {
-	cout << "Starting controller listener" << endl;
-	displayDriver.clearDisplay();
-	refreshMenu();
 
-	// Local developement pulls relative to .cpp files finshed version pulls relative to the binaries.
-	FILE* controllerInputFile = initControllerProcess();
-	if (!controllerInputFile) {
-		return 1;
+void handlePongState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
+	if (controllerValue == O && wasPressed) {
+		// Return to menus from the pong game.
+		currentSystemState = MENU;
+		refreshMenu();
+		return;
 	}
+}
 
 
-	// Indefinitely process input from controller and act upon it.
-	char inputBuffer[3] = {};
-	//uint8_t camDisplayBuffer[196] = {};
-	CONTROLLER_INPUT controllerValue = NONE;
-	bool wasPressed = false;
-	while(1) {
-		// TODO: Figure out how to prevent a hang on camera locking up input handling.
-		// Try to read a frame off the camera's file descriptor.
-		if (currentSystemState == DEPTH_CAM) {
-		}
-
-		try {
+int checkForNewControllerInput() {
+	try {
 			size_t bytesread =
-			  fread(&inputBuffer, sizeof(char), sizeof(inputBuffer), controllerInputFile);
+			  fread(&controllerInputBuffer, sizeof(char), sizeof(controllerInputBuffer), controllerInputFile);
+
 			if (bytesread == 0) {
-				// TODO: Probably do a small sleep to save power.
-				continue;
+				controllerValue = NONE;
+				wasPressed = false;
+				return 0;
 			}
 
 			controllerValue =
-			  static_cast<CONTROLLER_INPUT>((10 * (int)inputBuffer[0] + (int)inputBuffer[1]) - 528);
-			wasPressed = inputBuffer[2] == '1';
-			cout << "Heard input: " << controllerValue << " is pressed: " << inputBuffer[2] << endl;
+			  static_cast<CONTROLLER_INPUT>((10 * (int)controllerInputBuffer[0] + (int)controllerInputBuffer[1]) - 528);
+			wasPressed = controllerInputBuffer[2] == '1';
+			cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
 		} catch (...) {
 			cout << "Error was caught reading controller input!" << endl;
 			pclose(controllerInputFile);
 			return 1;
 		}
-		// Now handle the newly processed input.
+		return 0;
+}
 
+int main(int argc, char *argv[]) {
+	cout << "Starting controller listener" << endl;
+	displayDriver.clearDisplay();
+	refreshMenu();
+
+	controllerInputFile = initControllerProcess();
+	// TODO: Consider sleeping a little to save power sometimes?
+	if (!controllerInputFile) {
+		return 1;
+	}
+
+	// Indefinitely process input from controller and act upon it.
+	while(1) {
+		int controllerStatus = checkForNewControllerInput();
+		if (controllerStatus != 0) {
+			return controllerStatus;
+		}
+
+		// Now handle the newly processed input.
 		if (currentSystemState == MENU) {
 			handleMenuState(controllerValue, wasPressed);
 		} else if (currentSystemState == DEPTH_CAM) {
 			handleDepthCamState(controllerValue, wasPressed);
-
+		} else if (currentSystemState == PONG) {
+			handlePongState(controllerValue, wasPressed);
 		}
 
-		// Do something with the input...
 	}
 
 	return 0;
