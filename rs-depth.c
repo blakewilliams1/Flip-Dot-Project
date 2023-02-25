@@ -163,6 +163,7 @@ int main(int argc, char *argv[]) {
 
 	char* buffer = calloc(display_size, sizeof(char));
 	char* out = NULL;
+	bool shouldQuitProcess = false;
 
 	while (1) {
 		// This call waits until a new composite_frame is available
@@ -222,17 +223,23 @@ int main(int argc, char *argv[]) {
 						*out++ = pixels[pixel_index];
 						coverage[i] = 0;
 					}
-					*out++ = '\n';
+					//*out++ = '\n';
 				}
 			}
 			*out++ = 0;
-			printf("\n%s", buffer);
+			int printStatus = printf("%s", buffer);
+			if (printStatus < 0) {
+        shouldQuitProcess = true;
+			}
 
 			free(coverage);
 			rs2_release_frame(frame);
 		}
 
 		rs2_release_frame(frames);
+		if (shouldQuitProcess) {
+      break;
+		}
 	}
 
 	// Stop the pipeline streaming
