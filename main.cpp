@@ -45,7 +45,7 @@ int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 FILE* controllerInputFile = NULL;
 FILE* depthCamFile = NULL;
 char controllerInputBuffer[3] = {};
-char cameraInputBuffer[1652] = {}; // 59 * 28 pixels
+char cameraInputBuffer[1792] = {}; // 64 * 28 pixels
 int highlightedMenuItem = 0;
 CONTROLLER_INPUT controllerValue = NONE;
 bool wasPressed = false;
@@ -143,6 +143,11 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		for (int i = 0; i < 196; i++) {
 			byte builtRow = 0;
 			for (int j = 0; j < 8; j++) {
+  			// Skip the pixels that won't fit on the display
+				while (cameraInputBufferIndex % 64 < 4 || cameraInputBufferIndex % 64 >= 60) {
+          cameraInputBufferIndex ++;
+				}
+
 				// The pixel is on if the value of the depth is greater than 2.
 				bool isPixelOn = ((int)cameraInputBuffer[cameraInputBufferIndex] - 48) > 2;
 				builtRow |= (((int)isPixelOn)<<j);
