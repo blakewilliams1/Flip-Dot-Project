@@ -107,7 +107,8 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 0) {
 		// Enter the depth cam mode.
 		displayDriver.clearDisplay();
-  	displayDriver.drawText("loading", 15, 12, true);
+  	displayDriver.drawText("loading", 15, 12);
+  	displayDriver.refreshEntireDisplay();
 		depthCamFile = popen("./rs-depth", "r");
 		if (!depthCamFile) {
 			cout << "Error starting depth camera!" << endl;
