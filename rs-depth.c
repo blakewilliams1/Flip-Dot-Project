@@ -158,9 +158,8 @@ int main(int argc, char *argv[]) {
 	}
 	int rows = height / HEIGHT_RATIO;
 	int row_length = width / WIDTH_RATIO;
-	int display_size = (rows + 1) * (row_length + 1);
+	int display_size = (rows * row_length);
 	int buffer_size = display_size * sizeof(char);
-
 	char* buffer = calloc(display_size, sizeof(char));
 	char* out = NULL;
 	bool shouldQuitProcess = false;
@@ -183,13 +182,15 @@ int main(int argc, char *argv[]) {
 			rs2_frame* frame = rs2_extract_frame(frames, i, &e);
 			check_error(e);
 
-  		// Restrict the frames to be no more than 10 fps (max refresh rate possible on display).
-      clock_t currClock = clock();
-      if (currClock - lastSentFrameTimestampMs <= 100) {
+  		// Restrict the frames to be no more than 10 fps (1/10 of a sec, max refresh rate possible on display).
+      /*clock_t currClock = clock();
+      double elapsed_time = (currClock - lastSentFrameTimestampMs) / CLOCKS_PER_SEC;
+      if (elapsed_time < 0.1) {
 				rs2_release_frame(frame);
 				continue;
       }
-      lastSentFrameTimestampMs = currClock;
+      lastSentFrameTimestampMs = currClock;*/
+     // printf("%d\n", currClock);
 
 			// Check if the given frame can be extended to depth frame interface
 			// Accept only depth frames and skip other frames
@@ -218,19 +219,24 @@ int main(int argc, char *argv[]) {
 
 				if ((y % HEIGHT_RATIO) == (HEIGHT_RATIO-1)) {
 					for (i = 0; i < (row_length); ++i) {
+					// TODO: move this to a higher, maybe global scope.
 						static const char* pixels = "012345678";//" .:;nhBXW";
 						int pixel_index = (coverage[i] / (HEIGHT_RATIO * WIDTH_RATIO / sizeof(pixels)));
 						*out++ = pixels[pixel_index];
 						coverage[i] = 0;
 					}
-					//*out++ = '\n';
+				//	*out++ = '\n';
 				}
 			}
-			*out++ = 0;
-			int printStatus = printf("%s", buffer);
+			//*out++ = 0;
+			// Print 1792 bytes of data to the terminal
+			int printStatus = printf("%.1792s", buffer);
 			if (printStatus < 0) {
         shouldQuitProcess = true;
 			}
+			// INCREDIBLY IMPORTANT TO FLUSH THIS!!
+			// IT MAKES SURE THE PARENT PROCESS READING THE DATA DOESN'T GET PARTIAL READS!
+			fflush(stdout);
 
 			free(coverage);
 			rs2_release_frame(frame);
