@@ -8,6 +8,9 @@
 #include <chrono>
 #include <thread>
 
+// TODO: Delete this include after debugging
+#include <time.h>
+
 #include "FlipDotDriver.h"
 
 using namespace std;
@@ -82,9 +85,10 @@ FILE* initDepthCamProcess() {
 		cout << "Error starting depth cam process!" << endl;
 		return processFilePointer;
 	}
-	int controllerInputFd = fileno(processFilePointer);
-	int controllerInputFdFlags = fcntl(controllerInputFd, F_GETFL, 0);
-	fcntl(controllerInputFd, F_SETFL, controllerInputFdFlags | O_NONBLOCK);
+	int depthCamInputFd = fileno(processFilePointer);
+	// TODO: Handle when return code is -1.
+	int depthCamFdFlags = fcntl(depthCamInputFd, F_GETFL, 0);
+	//fcntl(controllerInputFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
 
 	return processFilePointer;
 }
@@ -103,7 +107,7 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 0) {
 		// Enter the depth cam mode.
 		displayDriver.clearDisplay();
-		displayDriver.drawText("loading", 15, 12, true);
+  	displayDriver.drawText("loading", 15, 12, true);
 		depthCamFile = popen("./rs-depth", "r");
 		if (!depthCamFile) {
 			cout << "Error starting depth camera!" << endl;
@@ -119,48 +123,73 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 }
 
-
+clock_t timeOfLastProcessedFrame = 0;
 void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	if (controllerValue == O && wasPressed) {
 		// Return to menus from the depth cam view.
 		currentSystemState = MENU;
 		refreshMenu();
+		// Shut down the depth cam child process we have a reference to it (implies it's live still).
 		if (depthCamFile) {
 			pclose(depthCamFile);
 		}
 		return;
 	}
 
-	// Read depth camera data. All values > 2 are on pixels. Incoming buffer will be 59 x 28 pixels
-	//cout << "about to read cam data" << endl;
+	// Read depth camera data. All values > 2 are on pixels. Incoming buffer will be 64 x 28 pixels
+	// but the first 5 values of each row should be trimmed off becaues they're dead for some reason.
+	// The actual panel 56 x 28 in size.
 	size_t cameraReadStatus =
 	  fread(&cameraInputBuffer, sizeof(char), sizeof(cameraInputBuffer), depthCamFile);
 
-	byte camDisplayBuffer[196] = {};
+	// Not bytes read this pass.
 	if (cameraReadStatus == 0) {
-		// Convert all values into a raw display buffer and send to display.
-		int cameraInputBufferIndex = 0;
-		for (int i = 0; i < 196; i++) {
-			byte builtRow = 0;
-			for (int j = 0; j < 8; j++) {
-  			// Skip the pixels that won't fit on the display
-				while (cameraInputBufferIndex % 64 < 4 || cameraInputBufferIndex % 64 >= 60) {
-          cameraInputBufferIndex ++;
-				}
-
-				// The pixel is on if the value of the depth is greater than 2.
-				bool isPixelOn = ((int)cameraInputBuffer[cameraInputBufferIndex] - 48) > 2;
-				builtRow |= (((int)isPixelOn)<<j);
-				cameraInputBufferIndex++;
-			}
-			camDisplayBuffer[i] = builtRow;
-		}
-		//printf(camDisplayBuffer);
-		displayDriver.setRawDisplayData(camDisplayBuffer);
-		displayDriver.refreshEntireDisplay();
+    return;
 	}
-}
 
+	// Bytes have been read, and we're assuming that's a full frame of data! We're recieving at 30fps but present at
+	// whatever the fastest framerate I can get by with. Initial tests showed that to be about 10fps for full screen
+	// refreshes, but in practice the depth cam data does change every single pixel at the same time and we can bump
+	// it up a little more.
+  clock_t currClock = clock();
+  double elapsedTimeSinceLastProcessedFrameSec = (double)(currClock - timeOfLastProcessedFrame) / CLOCKS_PER_SEC;
+  int maxRefreshFrameRateHz = 20;
+  if (elapsedTimeSinceLastProcessedFrameSec < ((double)1 / maxRefreshFrameRateHz)) {
+    return;
+  }
+  byte camDisplayBuffer[196] = {};
+  timeOfLastProcessedFrame = currClock;
+  // There are 28 rows on the display, process them one at a time.
+  int cameraBufferRowWidth = 64;
+  // The nested for loops are designed to iterate over the desired elements of the camera data, but that is not aligned
+  // with the indexing of the output buffer for displays. Use this index variable to track where we should put the
+  // processed data within the display buffer.
+  int currDisplayPixelIndex = 0;
+  for (int currRow = 0; currRow < 28; currRow++) {
+    for (int currPixel = 8; currPixel < cameraBufferRowWidth; currPixel++) {
+      // Get the data at the camera pixel.
+      int currDepthValue = cameraInputBuffer[(currRow * cameraBufferRowWidth) + currPixel] - '0';
+      bool isPixelOn = currDepthValue > 1;
+      // Set the data into the display input buffer.
+      byte relevanteByte = camDisplayBuffer[currDisplayPixelIndex / 8];
+      if (isPixelOn) {
+        // Force bit to be high.
+        relevanteByte |= 1 << (currDisplayPixelIndex % 8);
+      } else {
+        // Force bit to be low.
+        relevanteByte &= 255 - (currDisplayPixelIndex % 8);
+      }
+      // Save the modification back into the display buffer and increment the index of which bit to set next.
+      camDisplayBuffer[currDisplayPixelIndex / 8] = relevanteByte;
+      currDisplayPixelIndex++;
+    }
+  }
+  //printf("%.1792s\n", cameraInputBuffer);
+  cout << "going to process: " << cameraReadStatus << " bytes. elapsedTimeSinceLastProcessedFrame: " << elapsedTimeSinceLastProcessedFrameSec << endl;
+  displayDriver.clearDisplay();
+  displayDriver.setRawDisplayData(camDisplayBuffer);
+  displayDriver.refreshEntireDisplay();
+}
 
 void handlePongState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	if (controllerValue == O && wasPressed) {
@@ -186,7 +215,7 @@ int checkForNewControllerInput() {
 			controllerValue =
 			  static_cast<CONTROLLER_INPUT>((10 * (int)controllerInputBuffer[0] + (int)controllerInputBuffer[1]) - 528);
 			wasPressed = controllerInputBuffer[2] == '1';
-			cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
+			//cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
 		} catch (...) {
 			cout << "Error was caught reading controller input!" << endl;
 			pclose(controllerInputFile);
@@ -221,7 +250,6 @@ int main(int argc, char *argv[]) {
 		} else if (currentSystemState == PONG) {
 			handlePongState(controllerValue, wasPressed);
 		}
-
 	}
 
 	return 0;
