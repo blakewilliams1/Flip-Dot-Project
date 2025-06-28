@@ -9,29 +9,16 @@
 #include <thread>
 #include <csignal>
 #include <unistd.h>
+#include <sys/stat.h>
 
 // TODO: Delete this include after debugging
 #include <time.h>
 
+#include "ControllerInput.h"
 #include "FlipDotDriver.h"
+#include "PongGame.h"
 
 using namespace std;
-
-enum CONTROLLER_INPUT {
-	NONE = 0,
-	RIGHT_D_PAD = 1,
-	DOWN_D_PAD = 2,
-	LEFT_D_PAD = 3,
-	UP_D_PAD = 4,
-	TRIANGLE = 5,
-	O = 6,
-	X = 7,
-	SQUARE = 8,
-	L1 = 9,
-	R1 = 10,
-	L2 = 11,
-	R2 = 12,
-};
 
 enum SYSTEM_STATE {
 	MENU = 0,
@@ -57,9 +44,12 @@ CONTROLLER_INPUT controllerValue = NONE;
 bool wasPressed = false;
 SYSTEM_STATE currentSystemState = MENU;
 FlipDotDriver displayDriver(56, 28); // 4 panels.
+PongGame pongInstance(displayDriver);
 
 void refreshMenu() {
 	displayDriver.clearDisplay();
+	// TODO: Bug here where some text is drawn one pixel too high.
+	// Able to draw horizontal line of pixels without issue, only issue when drawing text near top of the screen.
 	for (int i = 0; i < menuLabelsLength; i++) {
 		displayDriver.drawText(menuLabels[i], 5, 22 - (i * 6));
 	}
@@ -67,8 +57,38 @@ void refreshMenu() {
 	displayDriver.refreshEntireDisplay();
 }
 
+void initDepthCamProcess() {
+  displayDriver.clearDisplay();
+  displayDriver.drawText("loading", 15, 12);
+  displayDriver.refreshEntireDisplay();
+
+  depthCamFile = popen("./rs-depth", "r");
+  if (!depthCamFile) {
+    cout << "Error starting depth camera!" << endl;
+    return;
+  }
+
+  // Read the PID of the newly created child process before setting reads to non-blocking.
+  // We need to know the PID to give it the kill signal when exiting from depth cam state.
+  fread(&depthCamPid, sizeof(pid_t), 1, depthCamFile);
+
+  // Set the file descriptor to be nonblocking reads.
+  int depthCamFd = fileno(depthCamFile);
+  int depthCamFdFlags = fcntl(depthCamFd, F_GETFL, 0);
+  fcntl(depthCamFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
+
+  cout << "starting depth camera!" << endl;
+  currentSystemState = DEPTH_CAM;
+}
+
 FILE* initControllerProcess() {
-	// Local development pulls relative to .cpp files, finshed version pulls relative to the binaries.
+	struct stat buffer;
+	bool isControllerConnected = stat("/dev/input/js0", &buffer) == 0;
+  if (!isControllerConnected) {
+    currentSystemState = DEPTH_CAM;
+    initDepthCamProcess();
+  }
+
 	FILE* processFilePointer = popen("./ps1_driver", "r");
 	if (!processFilePointer) {
 		cout << "Error starting controller listener!" << endl;
@@ -79,27 +99,6 @@ FILE* initControllerProcess() {
 	fcntl(controllerInputFd, F_SETFL, controllerInputFdFlags | O_NONBLOCK);
 
 	return processFilePointer;
-}
-
-void initDepthCamProcess() {
-  depthCamFile = popen("./rs-depth", "r");
-  if (!depthCamFile) {
-    cout << "Error starting depth camera!" << endl;
-    return;
-  }
-
-  // Read the PID of the newly created child process before setting reads to non-blocking.
-  // We need to know the PID to give it the kill signal when exiting from depth cam state.
-	size_t pidReadStatus =
-      fread(&depthCamPid, sizeof(pid_t), 1, depthCamFile);
-
-  // Set the file descriptor to be nonblocking reads.
-  int depthCamFd = fileno(depthCamFile);
-  int depthCamFdFlags = fcntl(depthCamFd, F_GETFL, 0);
-  fcntl(depthCamFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
-
-  cout << "starting depth camera!" << endl;
-  currentSystemState = DEPTH_CAM;
 }
 
 void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
@@ -115,10 +114,13 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 0) {
 		// Enter the depth cam mode.
-		displayDriver.clearDisplay();
-  	displayDriver.drawText("loading", 15, 12);
-  	displayDriver.refreshEntireDisplay();
 		initDepthCamProcess();
+	}
+
+	if (controllerValue == X && wasPressed && highlightedMenuItem == 1) {
+    // Enter pong mode.
+    pongInstance.startNewGame();
+    currentSystemState = PONG;
 	}
 }
 
@@ -191,11 +193,13 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 }
 
 void handlePongState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
-	if (controllerValue == O && wasPressed) {
+  bool isGameStillGoing = pongInstance.maybeTickGameLoop(controllerValue, wasPressed);
+	bool quitButtonPressed = controllerValue == O && wasPressed;
+
+	if (quitButtonPressed || !isGameStillGoing) {
 		// Return to menus from the pong game.
 		currentSystemState = MENU;
 		refreshMenu();
-		return;
 	}
 }
 
@@ -214,7 +218,7 @@ int checkForNewControllerInput() {
 			controllerValue =
 			  static_cast<CONTROLLER_INPUT>((10 * (int)controllerInputBuffer[0] + (int)controllerInputBuffer[1]) - 528);
 			wasPressed = controllerInputBuffer[2] == '1';
-			cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
+		//	cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
 		} catch (...) {
 			cout << "Error was caught reading controller input!" << endl;
 			pclose(controllerInputFile);
@@ -224,7 +228,7 @@ int checkForNewControllerInput() {
 }
 
 int main(int argc, char *argv[]) {
-	cout << "Starting controller listener" << endl;
+	//cout << "Starting controller listener" << endl;
 	displayDriver.clearDisplay();
 	refreshMenu();
 
