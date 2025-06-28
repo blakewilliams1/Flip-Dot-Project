@@ -7,6 +7,8 @@
 
 #include <chrono>
 #include <thread>
+#include <csignal>
+#include <unistd.h>
 
 // TODO: Delete this include after debugging
 #include <time.h>
@@ -47,6 +49,7 @@ int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 
 FILE* controllerInputFile = NULL;
 FILE* depthCamFile = NULL;
+pid_t depthCamPid = 0;
 char controllerInputBuffer[3] = {};
 char cameraInputBuffer[1792] = {}; // 64 * 28 pixels
 int highlightedMenuItem = 0;
@@ -78,19 +81,25 @@ FILE* initControllerProcess() {
 	return processFilePointer;
 }
 
-FILE* initDepthCamProcess() {
-	// Local developement pulls relative to .cpp files, finshed version pulls relative to the binaries.
-	FILE* processFilePointer = popen("./rs-depth", "r");
-	if (!processFilePointer) {
-		cout << "Error starting depth cam process!" << endl;
-		return processFilePointer;
-	}
-	int depthCamInputFd = fileno(processFilePointer);
-	// TODO: Handle when return code is -1.
-	int depthCamFdFlags = fcntl(depthCamInputFd, F_GETFL, 0);
-	//fcntl(controllerInputFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
+void initDepthCamProcess() {
+  depthCamFile = popen("./rs-depth", "r");
+  if (!depthCamFile) {
+    cout << "Error starting depth camera!" << endl;
+    return;
+  }
 
-	return processFilePointer;
+  // Read the PID of the newly created child process before setting reads to non-blocking.
+  // We need to know the PID to give it the kill signal when exiting from depth cam state.
+	size_t pidReadStatus =
+      fread(&depthCamPid, sizeof(pid_t), 1, depthCamFile);
+
+  // Set the file descriptor to be nonblocking reads.
+  int depthCamFd = fileno(depthCamFile);
+  int depthCamFdFlags = fcntl(depthCamFd, F_GETFL, 0);
+  fcntl(depthCamFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
+
+  cout << "starting depth camera!" << endl;
+  currentSystemState = DEPTH_CAM;
 }
 
 void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
@@ -109,18 +118,7 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		displayDriver.clearDisplay();
   	displayDriver.drawText("loading", 15, 12);
   	displayDriver.refreshEntireDisplay();
-		depthCamFile = popen("./rs-depth", "r");
-		if (!depthCamFile) {
-			cout << "Error starting depth camera!" << endl;
-			return;
-		}
-		// Set the file descriptor to be nonblocking reads.
-		int depthCamFd = fileno(depthCamFile);
-		int depthCamFdFlags = fcntl(depthCamFd, F_GETFL, 0);
-		fcntl(depthCamFd, F_SETFL, depthCamFdFlags | O_NONBLOCK);
-
-		cout << "starting depth camera!" << endl;
-		currentSystemState = DEPTH_CAM;
+		initDepthCamProcess();
 	}
 }
 
@@ -132,7 +130,7 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		refreshMenu();
 		// Shut down the depth cam child process we have a reference to it (implies it's live still).
 		if (depthCamFile) {
-			pclose(depthCamFile);
+      kill(depthCamPid, SIGTERM);
 		}
 		return;
 	}
@@ -186,7 +184,7 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
     }
   }
   //printf("%.1792s\n", cameraInputBuffer);
-  cout << "going to process: " << cameraReadStatus << " bytes. elapsedTimeSinceLastProcessedFrame: " << elapsedTimeSinceLastProcessedFrameSec << endl;
+  //cout << "going to process: " << cameraReadStatus << " bytes. elapsedTimeSinceLastProcessedFrame: " << elapsedTimeSinceLastProcessedFrameSec << endl;
   displayDriver.clearDisplay();
   displayDriver.setRawDisplayData(camDisplayBuffer);
   displayDriver.refreshEntireDisplay();
@@ -216,7 +214,7 @@ int checkForNewControllerInput() {
 			controllerValue =
 			  static_cast<CONTROLLER_INPUT>((10 * (int)controllerInputBuffer[0] + (int)controllerInputBuffer[1]) - 528);
 			wasPressed = controllerInputBuffer[2] == '1';
-			//cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
+			cout << "Heard input: " << controllerValue << " is pressed: " << controllerInputBuffer[2] << endl;
 		} catch (...) {
 			cout << "Error was caught reading controller input!" << endl;
 			pclose(controllerInputFile);
