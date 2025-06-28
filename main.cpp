@@ -129,8 +129,10 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		currentSystemState = MENU;
 		refreshMenu();
 		// Shut down the depth cam child process we have a reference to it (implies it's live still).
-		if (depthCamFile) {
+		if (depthCamPid > 0) {
       kill(depthCamPid, SIGTERM);
+      depthCamPid = -1;
+      depthCamFile = nullptr;
 		}
 		return;
 	}
@@ -156,7 +158,8 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
   if (elapsedTimeSinceLastProcessedFrameSec < ((double)1 / maxRefreshFrameRateHz)) {
     return;
   }
-  byte camDisplayBuffer[196] = {};
+  // The size of the display in pixels, divided by 8 because each element of this array holds 8 pixels of data.
+  byte rawDisplayBuffer[(56 * 28) / 8] = {};
   timeOfLastProcessedFrame = currClock;
   // There are 28 rows on the display, process them one at a time.
   int cameraBufferRowWidth = 64;
@@ -170,23 +173,20 @@ void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
       int currDepthValue = cameraInputBuffer[(currRow * cameraBufferRowWidth) + currPixel] - '0';
       bool isPixelOn = currDepthValue > 1;
       // Set the data into the display input buffer.
-      byte relevanteByte = camDisplayBuffer[currDisplayPixelIndex / 8];
+      byte relevanteByte = rawDisplayBuffer[currDisplayPixelIndex / 8];
       if (isPixelOn) {
         // Force bit to be high.
         relevanteByte |= 1 << (currDisplayPixelIndex % 8);
-      } else {
-        // Force bit to be low.
-        relevanteByte &= 255 - (currDisplayPixelIndex % 8);
       }
       // Save the modification back into the display buffer and increment the index of which bit to set next.
-      camDisplayBuffer[currDisplayPixelIndex / 8] = relevanteByte;
+      rawDisplayBuffer[currDisplayPixelIndex / 8] = relevanteByte;
       currDisplayPixelIndex++;
     }
   }
   //printf("%.1792s\n", cameraInputBuffer);
   //cout << "going to process: " << cameraReadStatus << " bytes. elapsedTimeSinceLastProcessedFrame: " << elapsedTimeSinceLastProcessedFrameSec << endl;
   displayDriver.clearDisplay();
-  displayDriver.setRawDisplayData(camDisplayBuffer);
+  displayDriver.setRawDisplayData(rawDisplayBuffer);
   displayDriver.refreshEntireDisplay();
 }
 
