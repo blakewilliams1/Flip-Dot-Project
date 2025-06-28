@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
+#include <signal.h>
+#include <unistd.h>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                     These parameters are reconfigurable                                        //
@@ -25,6 +27,9 @@
 #define HEIGHT_RATIO    17                // Defines the height ratio between the original frame to the new frame //
 #define WIDTH_RATIO     10                // Defines the width ratio between the original frame to the new frame  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool shouldQuitProcess = false;
+long lastSentFrameTimestampMs = 0;
 
 // The number of meters represented by a single depth unit
 float get_depth_unit_value(const rs2_device* const dev) {
@@ -64,9 +69,16 @@ float get_depth_unit_value(const rs2_device* const dev) {
 	return depth_scale;
 }
 
-long lastSentFrameTimestampMs = 0;
+void handle_sigterm(int sig) {
+  shouldQuitProcess = true;
+}
 
 int main(int argc, char *argv[]) {
+  // Provides a mechanism to break out of the infinite loop when the parent process decides to kill this one.
+  signal(SIGTERM, handle_sigterm);
+  pid_t pidValue = getpid();
+  //printf("%d", getpid());
+  //fflush(stdout);
 	int width = WIDTH;
 	int height = HEIGHT;
 	int fps = FPS;
@@ -162,9 +174,8 @@ int main(int argc, char *argv[]) {
 	int buffer_size = display_size * sizeof(char);
 	char* buffer = calloc(display_size, sizeof(char));
 	char* out = NULL;
-	bool shouldQuitProcess = false;
 
-	while (1) {
+	while (!shouldQuitProcess) {
 		// This call waits until a new composite_frame is available
 		// composite_frame holds a set of frames. It is used to prevent frame drops
 		// The returned object should be released with rs2_release_frame(...)
@@ -230,6 +241,7 @@ int main(int argc, char *argv[]) {
 			}
 			//*out++ = 0;
 			// Print 1792 bytes of data to the terminal
+      fwrite(&pidValue, sizeof(pid_t), 1, stdout);
 			int printStatus = printf("%.1792s", buffer);
 			if (printStatus < 0) {
         shouldQuitProcess = true;
