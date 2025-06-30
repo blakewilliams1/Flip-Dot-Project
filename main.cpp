@@ -17,6 +17,7 @@
 #include "ControllerInput.h"
 #include "FlipDotDriver.h"
 #include "PongGame.h"
+#include "LavaLampSim.h"
 
 using namespace std;
 
@@ -24,13 +25,13 @@ enum SYSTEM_STATE {
 	MENU = 0,
 	DEPTH_CAM = 1,
 	PONG = 2,
-	PIXEL_TESTING = 3,
+	LAVA_SIM = 3,
 };
 
 string menuLabels[3] = {
 	"depth cam",
 	"pong",
-	"demo",
+	"lava sim",
 };
 int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 
@@ -43,17 +44,27 @@ int highlightedMenuItem = 0;
 CONTROLLER_INPUT controllerValue = NONE;
 bool wasPressed = false;
 SYSTEM_STATE currentSystemState = MENU;
-FlipDotDriver displayDriver(56, 28); // 4 panels.
+FlipDotDriver displayDriver(56, 28); // 8 panels wide.
 PongGame pongInstance(displayDriver);
+LavaLampSim lavaInstance(displayDriver);
 
 void refreshMenu() {
 	displayDriver.clearDisplay();
-	// TODO: Bug here where some text is drawn one pixel too high.
+	// TODO: Bug here where some text is drawn one pixel too high. worse if drawing starts at x=6.
+	// Panels really don't like 0b0001010 anywhere in the payload.
 	// Able to draw horizontal line of pixels without issue, only issue when drawing text near top of the screen.
 	for (int i = 0; i < menuLabelsLength; i++) {
-		displayDriver.drawText(menuLabels[i], 5, 22 - (i * 6));
+		displayDriver.drawText(menuLabels[i], 7, 22 - (i * 6));
 	}
-	displayDriver.drawText(">", 1, 22 - (highlightedMenuItem * 6));
+
+/*	displayDriver.drawPixel(true, 7-7, 26, false);
+	displayDriver.drawPixel(true, 8-7, 25, false);
+	displayDriver.drawPixel(true, 8-7, 24, false);
+	displayDriver.drawPixel(true, 8-7, 23, false);
+	displayDriver.drawPixel(true, 7-7, 22, false);*/
+//  displayDriver.drawText("d", 6, 22);
+ // displayDriver.drawText("e", 10-7, 22);
+	displayDriver.drawText(">", 2, 22 - (highlightedMenuItem * 6));
 	displayDriver.refreshEntireDisplay();
 }
 
@@ -116,11 +127,13 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		// Enter the depth cam mode.
 		initDepthCamProcess();
 	}
-
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 1) {
     // Enter pong mode.
     pongInstance.startNewGame();
     currentSystemState = PONG;
+	}
+	if (controllerValue == X && wasPressed && highlightedMenuItem == 2) {
+    currentSystemState = LAVA_SIM;
 	}
 }
 
@@ -203,6 +216,14 @@ void handlePongState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 }
 
+void handleLavaSimState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
+  if (controllerValue == O && wasPressed) {
+    currentSystemState = MENU;
+		refreshMenu();
+  }
+
+  lavaInstance.maybeTickSimulation();
+}
 
 int checkForNewControllerInput() {
 	try {
@@ -230,6 +251,13 @@ int checkForNewControllerInput() {
 int main(int argc, char *argv[]) {
 	//cout << "Starting controller listener" << endl;
 	displayDriver.clearDisplay();
+	// A conditional preprocessor messsage on the panels to let user know if ready, if the screen resumes in the same state
+	// it was turned off in. Macros are defined in Code::Blocks project build settings.
+	#ifdef RELEASE_BUILD
+    displayDriver.drawText("ready", 17, 11);
+    displayDriver.refreshEntireDisplay();
+    sleep(2);
+	#endif
 	refreshMenu();
 
 	controllerInputFile = initControllerProcess();
@@ -252,6 +280,8 @@ int main(int argc, char *argv[]) {
 			handleDepthCamState(controllerValue, wasPressed);
 		} else if (currentSystemState == PONG) {
 			handlePongState(controllerValue, wasPressed);
+		} else if (currentSystemState == LAVA_SIM) {
+      handleLavaSimState(controllerValue, wasPressed);
 		}
 	}
 
