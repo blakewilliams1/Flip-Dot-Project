@@ -1,0 +1,16 @@
+[Unit]
+Description=Boots up the flip dot executable on system startup
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=blake
+WorkingDirectory=/home/blake/Documents/flip_dot_watchdog/bin/Release
+ExecStart=/usr/bin/lxterminal -e ./flip_dot_watchdog &
+Restart=on-failure
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/blake/.Xauthority
+
+[Install]
+WantedBy=graphical.target
