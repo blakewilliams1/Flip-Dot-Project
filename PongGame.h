@@ -12,9 +12,6 @@ class PongGame
     // Returns true if the game is still being played.
     bool maybeTickGameLoop(CONTROLLER_INPUT controllerValue, bool wasPressed);
 
-    virtual ~PongGame();
-
-
   private:
     FlipDotDriver& display;
     int leftScore;
@@ -23,20 +20,25 @@ class PongGame
     int leftPaddleVelocity;
     int rightPaddlePosition;
     int rightPaddleVelocity;
-    int ballX;
-    int ballY;
-    int ballXVelocity;
-    int ballYVelocity;
+    float ballX;
+    float ballY;
+    float ballXVelocity;
+    float ballYVelocity;
     int minTimeIncrement;
     int lastGameTickTimestamp;
-    int maxGameLoopTickHz = 10;
-    int paddleLength = 5;
-    int winningScore = 1;
+    int maxGameLoopTickHz = 15;
+    int paddleLength = 7;
+    int winningScore = 5;
     int width = 56;
     int height = 28;
-    bool updateBallPosition = false;
     void tickGameLoop();
     void updateDisplay();
+
+    // Separated just because I don't like them and would delete them if improvements to controller input state were made.
+    bool leftPaddleDownPressed = false;
+    bool leftPaddleUpPressed = false;
+    bool rightPaddleDownPressed = false;
+    bool rightPaddleUpPressed = false;
 };
 
 #endif // PONGGAME_H
