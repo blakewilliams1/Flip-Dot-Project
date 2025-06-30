@@ -52,6 +52,7 @@ bool PongGame::maybeTickGameLoop(CONTROLLER_INPUT controllerValue, bool wasPress
       break;
     default: break;
   }
+
   // Hacky and spaghetti approach but good enough till ps1 controller returns full state.
   if (leftPaddleDownPressed) {
     leftPaddleVelocity = -1;
@@ -59,11 +60,17 @@ bool PongGame::maybeTickGameLoop(CONTROLLER_INPUT controllerValue, bool wasPress
   if (leftPaddleUpPressed) {
     leftPaddleVelocity = 1;
   }
+  if (!leftPaddleDownPressed && !leftPaddleUpPressed) {
+    leftPaddleVelocity = 0;
+  }
   if (rightPaddleDownPressed) {
     rightPaddleVelocity = -1;
   }
   if (rightPaddleUpPressed) {
     rightPaddleVelocity = 1;
+  }
+  if (!rightPaddleDownPressed && !rightPaddleUpPressed) {
+    rightPaddleVelocity = 0;
   }
 
   // Check to see if enough time has passed to tick the game loop.
@@ -72,10 +79,7 @@ bool PongGame::maybeTickGameLoop(CONTROLLER_INPUT controllerValue, bool wasPress
   if (elapsedTimeSinceLastProcessedFrameSec >= ((double)1 / maxGameLoopTickHz)) {
     tickGameLoop();
     lastGameTickTimestamp = currClock;
-  } /*else if (forceUpdatePaddles) {
-  //
-    //updatePaddles();
-  }*/
+  }
 
   return true;
 }
