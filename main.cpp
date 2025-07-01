@@ -18,6 +18,7 @@
 #include "FlipDotDriver.h"
 #include "PongGame.h"
 #include "LavaLampSim.h"
+#include "FlippyBird.h"
 
 using namespace std;
 
@@ -26,12 +27,14 @@ enum SYSTEM_STATE {
 	DEPTH_CAM = 1,
 	PONG = 2,
 	LAVA_SIM = 3,
+	FLIPPY_BIRD = 4,
 };
 
-string menuLabels[3] = {
+string menuLabels[4] = {
 	"depth cam",
 	"pong",
 	"lava sim",
+	"flippy bird",
 };
 int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 
@@ -47,6 +50,7 @@ SYSTEM_STATE currentSystemState = MENU;
 FlipDotDriver displayDriver(56, 28); // 8 panels wide.
 PongGame pongInstance(displayDriver);
 LavaLampSim lavaInstance(displayDriver);
+FlippyBird flippyBirdInstance(displayDriver);
 
 void refreshMenu() {
 	displayDriver.clearDisplay();
@@ -54,7 +58,7 @@ void refreshMenu() {
 	// Panels really don't like 0b0001010 anywhere in the payload.
 	// Able to draw horizontal line of pixels without issue, only issue when drawing text near top of the screen.
 	for (int i = 0; i < menuLabelsLength; i++) {
-		displayDriver.drawText(menuLabels[i], 7, 22 - (i * 6));
+		displayDriver.drawText(menuLabels[i], 7, 21 - (i * 6));
 	}
 
 /*	displayDriver.drawPixel(true, 7-7, 26, false);
@@ -64,7 +68,7 @@ void refreshMenu() {
 	displayDriver.drawPixel(true, 7-7, 22, false);*/
 //  displayDriver.drawText("d", 6, 22);
  // displayDriver.drawText("e", 10-7, 22);
-	displayDriver.drawText(">", 2, 22 - (highlightedMenuItem * 6));
+	displayDriver.drawText(">", 2, 21 - (highlightedMenuItem * 6));
 	displayDriver.refreshEntireDisplay();
 }
 
@@ -134,6 +138,10 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 	}
 	if (controllerValue == X && wasPressed && highlightedMenuItem == 2) {
     currentSystemState = LAVA_SIM;
+	}
+	if (controllerValue == X && wasPressed && highlightedMenuItem == 3) {
+    flippyBirdInstance.resetGame();
+    currentSystemState = FLIPPY_BIRD;
 	}
 }
 
@@ -222,7 +230,16 @@ void handleLavaSimState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		refreshMenu();
   }
 
-  lavaInstance.maybeTickSimulation();
+  lavaInstance.maybeTickSimulation(controllerValue, wasPressed);
+}
+
+void handleFlippyBirdState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
+  bool isGameStillGoing = flippyBirdInstance.maybeTickGame(controllerValue, wasPressed);
+  bool quitButtonPressed = controllerValue == O && wasPressed;
+  if (quitButtonPressed || !isGameStillGoing) {
+    currentSystemState = MENU;
+		refreshMenu();
+  }
 }
 
 int checkForNewControllerInput() {
@@ -253,11 +270,11 @@ int main(int argc, char *argv[]) {
 	displayDriver.clearDisplay();
 	// A conditional preprocessor messsage on the panels to let user know if ready, if the screen resumes in the same state
 	// it was turned off in. Macros are defined in Code::Blocks project build settings.
-	#ifdef RELEASE_BUILD
-    displayDriver.drawText("ready", 17, 11);
+/*	#ifdef RELEASE_BUILD
+    displayDriver.drawText("ready", 18, 11);
     displayDriver.refreshEntireDisplay();
     sleep(2);
-	#endif
+	#endif*/
 	refreshMenu();
 
 	controllerInputFile = initControllerProcess();
@@ -282,6 +299,8 @@ int main(int argc, char *argv[]) {
 			handlePongState(controllerValue, wasPressed);
 		} else if (currentSystemState == LAVA_SIM) {
       handleLavaSimState(controllerValue, wasPressed);
+		} else if (currentSystemState == FLIPPY_BIRD) {
+      handleFlippyBirdState(controllerValue, wasPressed);
 		}
 	}
 
