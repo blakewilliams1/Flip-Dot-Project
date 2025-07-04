@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <limits>
+#include <cmath>
 
 #include "LavaLampSim.h"
 #include "FlipDotDriver.h"
@@ -10,14 +11,41 @@ using namespace std;
 
 LavaLampSim::LavaLampSim(FlipDotDriver& _display) : display(_display) {
   for (int i = 0; i < numBalls; i++) {
-    balls[i].x = rand() % (maxX - 2 * margin) + margin;
-    balls[i].y = rand() % (maxY - 2 * margin) + margin;
-    balls[i].dx = (rand() % 2 == 0) ? -1 : 1;
-    balls[i].dy = (rand() % 2 == 0) ? -1 : 1;
+    resetBallState(balls[i]);
+  }
+  for (int i = 0; i < numNegativeBalls; i++) {
+    resetBallState(negativeBalls[i]);
   }
 }
 
-void LavaLampSim::maybeTickSimulation() {
+void LavaLampSim::resetBallState(Ball& ball) {
+  ball.x = rand() % (maxX - 2 * margin) + margin;
+  ball.y = rand() % (maxY - 2 * margin) + margin;
+  float randomDirection = rand() % 360;
+  // Root 2 will give the metaballs the same velocity as when they just moved along diagonals.
+  ball.dx = std::sqrt(2) * std::cos(randomDirection);
+  ball.dy = std::sqrt(2) * std::sin(randomDirection);
+}
+
+void LavaLampSim::resetDirections() {
+  // Root 2 will give the metaballs the same velocity as when they just moved along diagonals.
+  for (int i = 0; i < numBalls; i++) {
+    float randomDirection = rand() % 360;
+    balls[i].dx = std::sqrt(2) * std::cos(randomDirection);
+    balls[i].dy = std::sqrt(2) * std::sin(randomDirection);
+  }
+  for (int i = 0; i < numNegativeBalls; i++) {
+    float randomDirection = rand() % 360;
+    negativeBalls[i].dx = std::sqrt(2) * std::cos(randomDirection);
+    negativeBalls[i].dy = std::sqrt(2) * std::sin(randomDirection);
+  }
+}
+
+void LavaLampSim::maybeTickSimulation(CONTROLLER_INPUT controllerValue, bool wasPressed) {
+  if (controllerValue == TRIANGLE && wasPressed) {
+    resetDirections();
+  }
+
   // Check to see if enough time has passed to tick the game loop.
   clock_t currClock = clock();
   double elapsedTimeSinceLastProcessedFrameSec = (double)(currClock - lastSimulationTickTimestamp) / CLOCKS_PER_SEC;
@@ -27,22 +55,29 @@ void LavaLampSim::maybeTickSimulation() {
   }
 }
 
+void LavaLampSim::simulateBall(Ball& ball) {
+    if (ball.x + ball.dx >= maxX - margin ||
+        ball.x + ball.dx < margin) {
+      ball.dx *= -1;
+    }
+    if (ball.y + ball.dy >= maxY - margin ||
+        ball.y + ball.dy < margin) {
+      ball.dy *= -1;
+    }
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+}
+
 void LavaLampSim::tickSimulation() {
   display.clearDisplay();
 
   // Simulate the balls bouncing around the display.
   for (int i = 0; i < numBalls; i++) {
-    if (balls[i].x + balls[i].dx >= maxX - margin ||
-        balls[i].x + balls[i].dx < margin)
-      balls[i].dx *= -1;
-
-    if (balls[i].y + balls[i].dy >= maxY - margin ||
-        balls[i].y + balls[i].dy < margin) {
-      balls[i].dy *= -1;
-      }
-
-    balls[i].x += balls[i].dx;
-    balls[i].y += balls[i].dy;
+    simulateBall(balls[i]);
+  }
+  for (int i = 0; i < numNegativeBalls; i++) {
+    simulateBall(negativeBalls[i]);
   }
 
   // Render each pixel.
@@ -52,14 +87,10 @@ void LavaLampSim::tickSimulation() {
 
       // For each pixel, calculate how far all the metaballs are from it to determine if the pixel should be on.
       for (int k = 0; k < numBalls; k++) {
-        float dist_squared = (x - balls[k].x) * (x - balls[k].x) + (y - balls[k].y) * (y - balls[k].y);
-        if (dist_squared == 0) {
-          // If a metaball is exactly on top of the current pixel, it's definitely turning on.
-          // Do this just to prevent divide by zero errors.
-          sum = pixelActivationThreshold * 2;
-        } else {
-          sum += (radius * radius) / dist_squared;
-        }
+        sum += calculateDistSquared(balls[k], x, y);
+      }
+      for (int k = 0; k < numNegativeBalls; k++) {
+        sum -= calculateDistSquared(balls[k], x, y);
       }
 
       // Turn the pixel on if there were enough metaballs sufficiently close enough to the given pixel.
@@ -70,4 +101,15 @@ void LavaLampSim::tickSimulation() {
   }
 
   display.refreshEntireDisplay();
+}
+
+float LavaLampSim::calculateDistSquared(Ball& ball, int x, int y) {
+  float dist_squared = (x - ball.x) * (x - ball.x) + (y - ball.y) * (y - ball.y);
+  if (dist_squared == 0) {
+    // If a metaball is exactly on top of the current pixel, it's definitely turning on or off. Return an arbitrarily
+    // high value to be added (or subtracted if this is a negative metaball) and prevent division by zero.
+    return 99999;
+  } else {
+    return (radius * radius) / dist_squared;
+  }
 }
