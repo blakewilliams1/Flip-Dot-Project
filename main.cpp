@@ -96,6 +96,88 @@ void initDepthCamProcess() {
   currentSystemState = DEPTH_CAM;
 }
 
+const char* weatherApiRequest =
+  "curl -s wttr.in/?format=\"%l%0A%t%0A%C%0A%w%0A%u%0A%h\"";
+void getWeatherInfo() {
+  // Buffer to store each line of command output
+  char buffer[128];
+
+  // Open the command for reading its output
+  FILE *fp = popen(weatherApiRequest, "r");
+  if (fp == NULL) {
+    printf("failed to get weather data");
+  }
+
+  // Extract response output.
+  int lineIndex = 0;
+  string locationName, temperature, weatherStatus, windSpeed, uvIndex, humidityPercent;
+  while (fgets(buffer, sizeof(buffer), fp) != nullptr) {
+
+    string line = buffer;
+    cout << line << endl;
+    // Replac the newline char with string terminating char. We needed the newline chars in the
+    // custom request format but not anymore.
+    if (!line.empty() && line.back() == '\n') {
+      line.pop_back();
+    }
+    switch(lineIndex) {
+      case 0: {
+        int firstCommaIndex = line.find(',');
+        if (firstCommaIndex > 0) {
+          locationName = line.substr(0, firstCommaIndex);
+        } else {
+          locationName = line;
+        }
+        break;
+      }
+      case 1: {
+        temperature = line;
+        int degreeSymbolIndex = temperature.find("°");
+        if (degreeSymbolIndex > 0) {
+          temperature.erase(degreeSymbolIndex, 2);
+        }
+        break;
+      }
+      case 2:
+        weatherStatus = line;
+        break;
+      case 3:
+        // Erases the arrow symbol.
+        line.erase(0,4);
+        windSpeed = line;
+        break;
+      case 4:
+        uvIndex = line;
+        break;
+      case 5:
+        humidityPercent = line;
+        break;
+      default: break;
+    }
+    lineIndex++;
+  }
+
+  // Close the pipe. If it didn't close with success, show it.
+  int returnCode = pclose(fp);
+
+  // Show the weather if it was a success, or a warning on failure.
+  displayDriver.clearDisplay();
+  if (returnCode == 0) {
+    displayDriver.drawText(locationName, 2, 21);
+    displayDriver.drawText(temperature, 2, 15);
+    displayDriver.drawText(humidityPercent, 26, 15);
+    displayDriver.drawText("wind:" + windSpeed, 2, 9);
+    //displayDriver.drawText(weatherStatus, 2, 3);
+    //displayDriver.drawText("temp:" + temperature, 2, 15);
+    //displayDriver.drawText("humid:" + humidityPercent, 2, 9);
+    //displayDriver.drawText("uv:" + uvIndex, 39, 9);
+  } else {
+    displayDriver.drawText("error getting", 3, 15);
+    displayDriver.drawText("weather", 15, 9);
+  }
+  displayDriver.refreshEntireDisplay();
+}
+
 FILE* initControllerProcess() {
 	struct stat buffer;
 	bool isControllerConnected = stat("/dev/input/js0", &buffer) == 0;
@@ -270,11 +352,11 @@ int main(int argc, char *argv[]) {
 	displayDriver.clearDisplay();
 	// A conditional preprocessor messsage on the panels to let user know if ready, if the screen resumes in the same state
 	// it was turned off in. Macros are defined in Code::Blocks project build settings.
-/*	#ifdef RELEASE_BUILD
+//	#ifdef RELEASE_BUILD
     displayDriver.drawText("ready", 18, 11);
     displayDriver.refreshEntireDisplay();
     sleep(2);
-	#endif*/
+//	#endif
 	refreshMenu();
 
 	controllerInputFile = initControllerProcess();
