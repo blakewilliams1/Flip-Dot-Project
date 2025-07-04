@@ -65,7 +65,11 @@ bool FlippyBird::tickGame() {
     // This is the screen coordinate of the bottom of the current barrier.
     int currBarrierYHeight = upcomingBarrierHeights.at(barrierIndex++);
     // Hit a barrier if true, so game over.
-    if (birdYPosition <= currBarrierYHeight || birdYPosition >= currBarrierYHeight + barrierGapSize) {
+    if ((int)birdYPosition < currBarrierYHeight || (int)birdYPosition >= currBarrierYHeight + barrierGapSize) {
+      // This re-rendering before the sleep ensures the player see the exact state that caused them to lose.
+      // The change to scroll offset is so the bird isn't hidden inside the barriers.
+      scrollOffsetX++;
+      renderScreen();
       sleep(1);
       startShowingGameOverScreenTimestamp = clock();
     } else {
@@ -113,7 +117,7 @@ void FlippyBird::renderScreen() {
     }
 
     // Draw the text after everything else to make sure it's on top.
-    display.drawText(std::to_string(score), 5, 22, false);
+    display.drawText(std::to_string(score), 6, 22, false);
   } else {
     // Show the game over screen.
     display.drawText("game over", 11, 14, false);
