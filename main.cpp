@@ -14,6 +14,7 @@
 #include "PongGame.h"
 #include "LavaLampSim.h"
 #include "FlippyBird.h"
+#include "SnakeGame.h"
 
 using namespace std;
 
@@ -23,15 +24,19 @@ enum SYSTEM_STATE {
 	PONG = 2,
 	LAVA_SIM = 3,
 	FLIPPY_BIRD = 4,
+	SNAKE = 5,
+	WEATHER = 6,
 };
 
-string menuLabels[4] = {
+const int menuLabelsLength = 6;
+string menuLabels[menuLabelsLength] = {
 	"depth cam",
 	"pong",
 	"lava sim",
 	"flippy bird",
+	"snake",
+	"weather"
 };
-int menuLabelsLength = sizeof(menuLabels) / sizeof(string);
 
 FILE* controllerInputFile = NULL;
 char controllerInputBuffer[3] = {};
@@ -44,14 +49,28 @@ DepthCamera depthCameraInstance(displayDriver);
 PongGame pongInstance(displayDriver);
 LavaLampSim lavaInstance(displayDriver);
 FlippyBird flippyBirdInstance(displayDriver);
+SnakeGame snakeInstance(displayDriver);
 
 void refreshMenu() {
 	displayDriver.clearDisplay();
 	// TODO: Bug here where some text is drawn one pixel too high. worse if drawing starts at x=6.
 	// Panels really don't like 0b0001010 anywhere in the payload.
 	// Able to draw horizontal line of pixels without issue, only issue when drawing text near top of the screen.
+
+	int yOffset = 0;
+	if (highlightedMenuItem > 3) {
+    yOffset = (highlightedMenuItem - 3) * 6;
+	}
+
+	if (yOffset > 0) {
+    displayDriver.drawText("^", 52, 22);
+	}
+	if (highlightedMenuItem != menuLabelsLength - 1) {
+    displayDriver.drawText("~", 52, 1);
+	}
+
 	for (int i = 0; i < menuLabelsLength; i++) {
-		displayDriver.drawText(menuLabels[i], 7, 21 - (i * 6));
+		displayDriver.drawText(menuLabels[i], 7, 21 - (i * 6) + yOffset);
 	}
 
 /*	displayDriver.drawPixel(true, 7-7, 26, false);
@@ -61,13 +80,13 @@ void refreshMenu() {
 	displayDriver.drawPixel(true, 7-7, 22, false);*/
 //  displayDriver.drawText("d", 6, 22);
  // displayDriver.drawText("e", 10-7, 22);
-	displayDriver.drawText(">", 2, 21 - (highlightedMenuItem * 6));
+	displayDriver.drawText(">", 2, 21 - (highlightedMenuItem * 6) + yOffset);
 	displayDriver.refreshEntireDisplay();
 }
 
 const char* weatherApiRequest =
   "curl -s wttr.in/?format=\"%l%0A%t%0A%C%0A%w%0A%u%0A%h\"";
-void getWeatherInfo() {
+void showWeatherInfo() {
   // Buffer to store each line of command output
   char buffer[128];
 
@@ -177,23 +196,41 @@ void handleMenuState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 		refreshMenu();
 		return;
 	}
-	if (controllerValue == X && wasPressed && highlightedMenuItem == 0) {
-		// Enter the depth cam mode.
-		depthCameraInstance.startDepthCamera();
-		currentSystemState = DEPTH_CAM;
-	}
-	if (controllerValue == X && wasPressed && highlightedMenuItem == 1) {
-    // Enter pong mode.
-    pongInstance.startNewGame();
-    currentSystemState = PONG;
-	}
-	if (controllerValue == X && wasPressed && highlightedMenuItem == 2) {
-    currentSystemState = LAVA_SIM;
-	}
-	if (controllerValue == X && wasPressed && highlightedMenuItem == 3) {
-    flippyBirdInstance.resetGame();
-    currentSystemState = FLIPPY_BIRD;
-	}
+	// Check to see if some menu option as clicked.
+	if (controllerValue != X || !wasPressed) {
+    return;
+  }
+  switch (highlightedMenuItem) {
+    case 0:
+      // Enter the depth cam mode.
+      depthCameraInstance.startDepthCamera();
+      currentSystemState = DEPTH_CAM;
+      break;
+    case 1:
+      // Enter pong mode.
+      pongInstance.startNewGame();
+      currentSystemState = PONG;
+      break;
+    case 2:
+      currentSystemState = LAVA_SIM;
+      break;
+    case 3:
+      flippyBirdInstance.resetGame();
+      currentSystemState = FLIPPY_BIRD;
+      break;
+    case 4:
+      currentSystemState = SNAKE;
+      snakeInstance.resetGame();
+      break;
+    case 5:
+      currentSystemState = WEATHER;
+      displayDriver.clearDisplay();
+      displayDriver.drawText("loading", 15, 12);
+      displayDriver.refreshEntireDisplay();
+      showWeatherInfo();
+    default: break;
+
+  }
 }
 
 void handleDepthCamState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
@@ -231,6 +268,15 @@ void handleLavaSimState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
 
 void handleFlippyBirdState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
   bool isGameStillGoing = flippyBirdInstance.maybeTickGame(controllerValue, wasPressed);
+  bool quitButtonPressed = controllerValue == O && wasPressed;
+  if (quitButtonPressed || !isGameStillGoing) {
+    currentSystemState = MENU;
+		refreshMenu();
+  }
+}
+
+void handleSnakeState(CONTROLLER_INPUT controllerValue, bool wasPressed) {
+  bool isGameStillGoing = snakeInstance.maybeTickGame(controllerValue, wasPressed);
   bool quitButtonPressed = controllerValue == O && wasPressed;
   if (quitButtonPressed || !isGameStillGoing) {
     currentSystemState = MENU;
@@ -297,6 +343,13 @@ int main(int argc, char *argv[]) {
       handleLavaSimState(controllerValue, wasPressed);
 		} else if (currentSystemState == FLIPPY_BIRD) {
       handleFlippyBirdState(controllerValue, wasPressed);
+		} else if (currentSystemState == SNAKE) {
+      handleSnakeState(controllerValue, wasPressed);
+		} else if (currentSystemState == WEATHER) {
+      if (controllerValue == O && wasPressed) {
+        currentSystemState = MENU;
+        refreshMenu();
+      }
 		}
 	}
 
